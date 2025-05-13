@@ -216,6 +216,7 @@ type ModelState struct {
 	Message     []string `json:"Message,omitempty"`
 	Certificate []string `json:"Certificate,omitempty"`
 	Key         []string `json:"Key,omitempty"`
+	Rfc         []string `json:"Rfc,omitempty"`
 }
 
 // Error makes APIError implement the error interface.
