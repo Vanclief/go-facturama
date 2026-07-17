@@ -15,11 +15,9 @@ type GetCfdiByIdRequest struct {
 
 // Validate validates the request to get a CFDI by ID
 func (request *GetCfdiByIdRequest) Validate() error {
-	const op = "GetCfdiByIdRequest.Validate"
-
 	// Validate required parameters
 	if request.ID == "" {
-		return ez.New(op, ez.EINVALID, "CFDI ID is required", nil)
+		return ez.New(ez.EINVALID, "CFDI ID is required", nil)
 	}
 
 	return nil
@@ -28,12 +26,10 @@ func (request *GetCfdiByIdRequest) Validate() error {
 // GetCfdiById retrieves the details of a CFDI (Mexican digital invoice) by its ID
 // Endpoint: GET /api-lite/cfdis/{id}
 func (c *Client) GetCfdiById(ctx context.Context, request GetCfdiByIdRequest) (*models.CfdiInfoModel, error) {
-	const op = "multiemissor.GetCfdiById"
-
 	// Validate request
 	err := request.Validate()
 	if err != nil {
-		return nil, ez.Wrap(op, err)
+		return nil, ez.Wrap(err)
 	}
 
 	path := fmt.Sprintf("/api-lite/cfdis/%s", request.ID)
@@ -41,7 +37,7 @@ func (c *Client) GetCfdiById(ctx context.Context, request GetCfdiByIdRequest) (*
 
 	err = c.Get(ctx, path, &result)
 	if err != nil {
-		return nil, ez.Wrap(op, err)
+		return nil, ez.Wrap(err)
 	}
 
 	return &result, nil

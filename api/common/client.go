@@ -102,8 +102,6 @@ func NewClient(username, password string, options ...Option) *Client {
 
 // Request makes an HTTP request to the Facturama API
 func (c *Client) Request(ctx context.Context, method, path string, body interface{}, response interface{}) error {
-	const op = "common.Request"
-
 	// Create full URL
 	url := c.BaseURL + path
 
@@ -112,7 +110,7 @@ func (c *Client) Request(ctx context.Context, method, path string, body interfac
 	if body != nil {
 		bodyData, err := json.Marshal(body)
 		if err != nil {
-			return ez.New(op, ez.EINTERNAL, "Error marshaling request body request", err)
+			return ez.New(ez.EINTERNAL, "Error marshaling request body request", err)
 		}
 		bodyReader = bytes.NewReader(bodyData)
 	}
@@ -120,7 +118,7 @@ func (c *Client) Request(ctx context.Context, method, path string, body interfac
 	// Create request
 	req, err := http.NewRequestWithContext(ctx, method, url, bodyReader)
 	if err != nil {
-		return ez.New(op, ez.EINTERNAL, "Error creating request", err)
+		return ez.New(ez.EINTERNAL, "Error creating request", err)
 	}
 
 	// Create Basic Authentication header
@@ -133,14 +131,14 @@ func (c *Client) Request(ctx context.Context, method, path string, body interfac
 	// Execute request
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
-		return ez.New(op, ez.EINTERNAL, "Error executing request", err)
+		return ez.New(ez.EINTERNAL, "Error executing request", err)
 	}
 	defer resp.Body.Close()
 
 	// Read response body
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return ez.New(op, ez.EINTERNAL, "Error reading response body", err)
+		return ez.New(ez.EINTERNAL, "Error reading response body", err)
 	}
 
 	// Check for error response
@@ -166,7 +164,7 @@ func (c *Client) Request(ctx context.Context, method, path string, body interfac
 	// Parse response if provided
 	if response != nil && len(responseBody) > 0 {
 		if err := json.Unmarshal(responseBody, response); err != nil {
-			return ez.New(op, ez.EINTERNAL, "Error unmarshaling response", err)
+			return ez.New(ez.EINTERNAL, "Error unmarshaling response", err)
 		}
 	}
 
