@@ -61,7 +61,7 @@ type ItemFullBindingModel struct {
 	IdentificationNumber string                  `json:"IdentificationNumber,omitempty"`
 	SKU                  string                  `json:"SKU,omitempty"`
 	Description          string                  `json:"Description"`
-	Unit                 string                  `json:"Unit"`
+	Unit                 string                  `json:"Unit,omitempty"`
 	UnitCode             string                  `json:"UnitCode"`
 	UnitPrice            float64                 `json:"UnitPrice"`
 	Quantity             float64                 `json:"Quantity"`
@@ -161,7 +161,7 @@ type ThirdTaxInformationModel struct {
 // PartModel represents a part in a CFDI v4
 type PartModel struct {
 	Quantity             float64                   `json:"Quantity"`
-	Unit                 string                    `json:"Unit"`
+	Unit                 string                    `json:"Unit,omitempty"`
 	IdentificationNumber string                    `json:"IdentificationNumber,omitempty"`
 	Description          string                    `json:"Description"`
 	UnitPrce             float64                   `json:"UnitPrce"`
@@ -248,9 +248,15 @@ type RelatedDocumentModel struct {
 	Taxes                 []TaxBindingModel `json:"Taxes,omitempty"`
 }
 
+// DonationModel represents the donativos complement in a CFDI v4
+type DonationModel struct {
+	AuthorizationDate   string `json:"AuthorizationDate"` // dd/MM/yyyy
+	AuthorizationNumber string `json:"AuthorizationNumber"`
+	Legend              string `json:"Legend"`
+}
+
 // Placeholder models for other complementos - implement as needed
 type (
-	DonationModel        struct{}
 	ForeignTradeModel    struct{}
 	PayrollModel         struct{}
 	TaxLegendsModel      struct{}

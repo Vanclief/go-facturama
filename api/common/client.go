@@ -6,7 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/vanclief/ez"
@@ -143,27 +146,28 @@ func (c *Client) Request(ctx context.Context, method, path string, body interfac
 
 	// Check for error response
 	if resp.StatusCode >= 400 {
-
-		var errResp ErrorResponse
-		if err := json.Unmarshal(responseBody, &errResp); err != nil {
-			// fallback to raw string if JSON is malformed
-			return &APIError{
-				RawBody:    string(responseBody),
-				StatusCode: resp.StatusCode,
-			}
+		apiErr := &APIError{
+			RawBody:    string(responseBody),
+			StatusCode: resp.StatusCode,
 		}
 
-		return &APIError{
-			ErrorResponse: errResp,
-			RawBody:       string(responseBody),
-			StatusCode:    resp.StatusCode,
+		// A body that is not JSON (e.g. a gateway HTML page) leaves ErrorResponse empty
+		json.Unmarshal(responseBody, &apiErr.ErrorResponse)
+
+		// The ez message is shown to end users, so it never carries a raw body.
+		// Logs still get it through APIError.Error()
+		message := fmt.Sprintf("Facturama API error %d", resp.StatusCode)
+		if len(apiErr.details()) > 0 {
+			message = apiErr.Error()
 		}
 
+		return ez.New(ez.HTTPStatusToError(resp.StatusCode), message, apiErr)
 	}
 
 	// Parse response if provided
 	if response != nil && len(responseBody) > 0 {
-		if err := json.Unmarshal(responseBody, response); err != nil {
+		err = json.Unmarshal(responseBody, response)
+		if err != nil {
 			return ez.New(ez.EINTERNAL, "Error unmarshaling response", err)
 		}
 	}
@@ -191,7 +195,11 @@ func (c *Client) Delete(ctx context.Context, path string) error {
 	return c.Request(ctx, http.MethodDelete, path, nil, nil)
 }
 
-// APIError represents an error returned by the Facturama API
+// maxRawBodyInError is how much of an unparseable error body Error() includes
+const maxRawBodyInError = 300
+
+// APIError represents an error returned by the Facturama API. Request returns
+// it wrapped in an ez error, use errors.As to read it
 type APIError struct {
 	ErrorResponse // the structured error payload
 
@@ -204,26 +212,57 @@ type APIError struct {
 
 // ErrorResponse models the JSON payload returned on HTTP 4xx/5xx
 type ErrorResponse struct {
-	Message    string     `json:"Message"`
-	ModelState ModelState `json:"ModelState"`
+	Message string `json:"Message"`
+
+	// ModelState maps each rejected field to its messages, which carry SAT's
+	// actual reason (e.g. "cfdiToCreate.items[0].ProductCode": ["El campo clave
+	// del producto o del servicio no se encuentra en los catalogos."])
+	ModelState map[string][]string `json:"ModelState"`
 }
 
-// ModelState captures all of the possible ModelState arrays.
-// Add or omit fields as needed; use `omitempty` so zero slices disappear.
-type ModelState struct {
-	Message     []string `json:"Message,omitempty"`
-	Certificate []string `json:"Certificate,omitempty"`
-	Key         []string `json:"Key,omitempty"`
-	Rfc         []string `json:"Rfc,omitempty"`
+// details returns the non-empty parts of Facturama's explanation: Message,
+// then each field's messages
+func (e *APIError) details() []string {
+	var parts []string
+	if e.Message != "" {
+		parts = append(parts, e.Message)
+	}
+
+	for _, field := range slices.Sorted(maps.Keys(e.ModelState)) {
+		messages := strings.TrimSpace(strings.Join(e.ModelState[field], " "))
+		if messages == "" {
+			continue
+		}
+
+		// ASP.NET puts errors about the whole body under an empty key
+		if field != "" {
+			messages = field + ": " + messages
+		}
+		parts = append(parts, messages)
+	}
+
+	return parts
 }
 
-// Error makes APIError implement the error interface.
+// Error makes APIError implement the error interface. It appends the
+// ModelState messages because Message alone is usually generic.
 func (e *APIError) Error() string {
-	// you can format this however you like—here’s a concise version:
-	return fmt.Sprintf(
-		"Facturama API error %d: %s — %v",
-		e.StatusCode,
-		e.Message,
-		e.ModelState,
-	)
+	text := fmt.Sprintf("Facturama API error %d", e.StatusCode)
+
+	details := e.details()
+	if len(details) == 0 {
+		if e.RawBody == "" {
+			return text
+		}
+
+		// Cap the body so a gateway HTML page doesn't flood logs
+		body := []rune(e.RawBody)
+		if len(body) > maxRawBodyInError {
+			body = append(body[:maxRawBodyInError], '…')
+		}
+
+		return text + ": " + string(body)
+	}
+
+	return text + ": " + strings.Join(details, " ")
 }
