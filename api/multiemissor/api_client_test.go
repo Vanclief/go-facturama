@@ -32,43 +32,28 @@ func (s *APIClientSuite) SetupSuite() {
 	privateKeyPath := os.Getenv("FACTURAMA_PK_PATH")
 	privateKeyPassword := os.Getenv("FACTURAMA_PK_PASSWORD")
 
-	// Require credentials to be set
-	if username == "" {
-		s.T().Fatal("FACTURAMA_USERNAME environment variable must be set to run tests")
+	// Without sandbox credentials only the offline tests run
+	if username == "" || password == "" || s.RFC == "" {
+		s.T().Skip("Set FACTURAMA_USERNAME, FACTURAMA_PASSWORD and FACTURAMA_RFC to run the sandbox tests")
 	}
 
-	if password == "" {
-		s.T().Fatal("FACTURAMA_PASSWORD environment variable must be set to run tests")
-	}
-
-	if s.RFC == "" {
-		s.T().Fatal("FACTURAMA_RFC environment variable must be set to run tests")
-	}
-
-	if privateKeyPath == "" {
-		s.FailNow("FACTURAMA_PK_PATH is not set")
-	}
-
-	if certificatePath == "" {
-		s.FailNow("FACTURAMA_CERT_PATH is not set")
-	}
-
-	if privateKeyPassword == "" {
-		s.FailNow("FACTURAMA_PK_PASSWORD is not set")
-	}
-
+	// The CSD files are only needed by the CSD tests
 	s.PrivateKeyPassword = privateKeyPassword
 
 	var err error
 
-	s.Certificate, err = utils.FileToBase64String(certificatePath)
-	if err != nil {
-		s.T().Fatalf("Error reading certificate file: %v", err)
+	if certificatePath != "" {
+		s.Certificate, err = utils.FileToBase64String(certificatePath)
+		if err != nil {
+			s.T().Fatalf("Error reading certificate file: %v", err)
+		}
 	}
 
-	s.PrivateKey, err = utils.FileToBase64String(privateKeyPath)
-	if err != nil {
-		s.T().Fatalf("Error reading private key file: %v", err)
+	if privateKeyPath != "" {
+		s.PrivateKey, err = utils.FileToBase64String(privateKeyPath)
+		if err != nil {
+			s.T().Fatalf("Error reading private key file: %v", err)
+		}
 	}
 
 	// Create client with sandbox environment

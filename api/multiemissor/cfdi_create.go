@@ -11,29 +11,29 @@ import (
 
 // CreateCfdiV4Request represents a request to create a CFDI v4
 type CreateCfdiV4Request struct {
-	NameID               int                       `json:"NameId,omitempty"`
-	LogoURL              string                    `json:"LogoUrl,omitempty"`
-	Date                 string                    `json:"Date,omitempty"`
-	Serie                string                    `json:"Serie,omitempty"`
-	PaymentAccountNumber string                    `json:"PaymentAccountNumber,omitempty"`
-	CurrencyExchangeRate float64                   `json:"CurrencyExchangeRate,omitempty"`
-	Currency             string                    `json:"Currency,omitempty"`
-	ExpeditionPlace      string                    `json:"ExpeditionPlace"`
-	Exportation          string                    `json:"Exportation,omitempty"`
-	PaymentConditions    string                    `json:"PaymentConditions,omitempty"`
+	NameID               int                              `json:"NameId,omitempty"`
+	LogoURL              string                           `json:"LogoUrl,omitempty"`
+	Date                 string                           `json:"Date,omitempty"`
+	Serie                string                           `json:"Serie,omitempty"`
+	PaymentAccountNumber string                           `json:"PaymentAccountNumber,omitempty"`
+	CurrencyExchangeRate float64                          `json:"CurrencyExchangeRate,omitempty"`
+	Currency             string                           `json:"Currency,omitempty"`
+	ExpeditionPlace      string                           `json:"ExpeditionPlace"`
+	Exportation          string                           `json:"Exportation,omitempty"`
+	PaymentConditions    string                           `json:"PaymentConditions,omitempty"`
 	GlobalInformation    *models.GlobalInformationV4Model `json:"GlobalInformation,omitempty"`
 	Relations            *models.Cfdiv4Relations          `json:"Relations,omitempty"`
-	Folio                string                    `json:"Folio"`
-	CfdiType             string                    `json:"CfdiType"`
-	PaymentForm          string                    `json:"PaymentForm,omitempty"`
-	PaymentMethod        string                    `json:"PaymentMethod,omitempty"`
+	Folio                string                           `json:"Folio"`
+	CfdiType             string                           `json:"CfdiType"`
+	PaymentForm          string                           `json:"PaymentForm,omitempty"`
+	PaymentMethod        string                           `json:"PaymentMethod,omitempty"`
 	Issuer               models.IssuerV4BindingModel      `json:"Issuer"`
 	Receiver             models.ReceiverV4BindingModel    `json:"Receiver"`
-	Items                []models.ItemFullBindingModel    `json:"Items"`
+	Items                []models.ItemFullBindingModel    `json:"Items,omitempty"`
 	Complemento          *models.Complementv4             `json:"Complemento,omitempty"`
-	Observations         string                    `json:"Observations,omitempty"`
-	OrderNumber          string                    `json:"OrderNumber,omitempty"`
-	PaymentBankName      string                    `json:"PaymentBankName,omitempty"`
+	Observations         string                           `json:"Observations,omitempty"`
+	OrderNumber          string                           `json:"OrderNumber,omitempty"`
+	PaymentBankName      string                           `json:"PaymentBankName,omitempty"`
 }
 
 // Validate validates the request to create a CFDI v4
@@ -110,8 +110,8 @@ func (request *CreateCfdiV4Request) Validate() error {
 		return ez.New(ez.EINVALID, "Receiver.TaxZipCode is required", nil)
 	}
 
-	// Validate Items
-	if len(request.Items) == 0 {
+	// Validate Items. Payment CFDIs (P) carry their amounts in Complemento.Payments instead
+	if len(request.Items) == 0 && request.CfdiType != "P" {
 		return ez.New(ez.EINVALID, "At least one item is required", nil)
 	}
 
@@ -121,9 +121,6 @@ func (request *CreateCfdiV4Request) Validate() error {
 		}
 		if item.Description == "" {
 			return ez.New(ez.EINVALID, fmt.Sprintf("Items[%d].Description is required", i), nil)
-		}
-		if item.Unit == "" {
-			return ez.New(ez.EINVALID, fmt.Sprintf("Items[%d].Unit is required", i), nil)
 		}
 		if item.UnitCode == "" {
 			return ez.New(ez.EINVALID, fmt.Sprintf("Items[%d].UnitCode is required", i), nil)
@@ -148,6 +145,26 @@ func (c *Client) CreateCfdiV4(ctx context.Context, request CreateCfdiV4Request) 
 	// Using /api-lite/3/cfdis as the endpoint for CFDI v4 creation
 	path := "/api-lite/3/cfdis"
 	var result models.CfdiInfoModel
+
+	err = c.Post(ctx, path, request, &result)
+	if err != nil {
+		return nil, ez.Wrap(err)
+	}
+
+	return &result, nil
+}
+
+// CreateCfdiV4XML creates a new CFDI v4 through the newer endpoint, which
+// responds with the stamped XML and tax stamp instead of the CFDI details
+// Endpoint: POST /api-lite/4/cfdis
+func (c *Client) CreateCfdiV4XML(ctx context.Context, request CreateCfdiV4Request) (*models.CfdiStampModel, error) {
+	err := request.Validate()
+	if err != nil {
+		return nil, ez.Wrap(err)
+	}
+
+	path := "/api-lite/4/cfdis"
+	var result models.CfdiStampModel
 
 	err = c.Post(ctx, path, request, &result)
 	if err != nil {
